@@ -4,13 +4,15 @@ from app.models.leads_model import LeadsModel
 from app.configs.database import db
 from sqlalchemy.orm.session import Session
 from sqlalchemy.orm import Query
-from sqlalchemy.exc import IntegrityError
-
+from sqlalchemy.exc import IntegrityError, NoResultFound
+from psycopg2.errors import UniqueViolation
 class NotFound(Exception):
     pass
 
 def create_leads():
-        data = request.get_json()    
+    data = request.get_json()
+    try:
+            
         leads_data = LeadsModel(**data)       
                 
         session: Session = db.session
@@ -20,14 +22,18 @@ def create_leads():
         session.commit() 
 
         return jsonify(leads_data), HTTPStatus.CREATED
+    except IntegrityError as e:
+        if type(e.orig) == UniqueViolation:
+            return {'msg': "Email ou telefone já existente"}, HTTPStatus.BAD_REQUEST
+
     
 def retrieve_leads():
     try:
         all_leads = Query(LeadsModel,current_app.db.session).order_by(LeadsModel.visits.desc()).all()
         if not all_leads:
             raise NotFound
-        serialized_leads = LeadsModel.serializer(all_leads)
-        return jsonify(serialized_leads), HTTPStatus.OK
+        
+        return jsonify(all_leads), HTTPStatus.OK
     except NotFound:
         return {'error': 'Nenhum dado encontrado'},HTTPStatus.NOT_FOUND
 
@@ -47,4 +53,6 @@ def delete_leads():
         return jsonify({'msg': 'Dado deletado'}), HTTPStatus.NO_CONTENT
     
     except NotFound:
-        return jsonify({"message": "Dado não encontrado no banco com esse email"}), HTTPStatus.NOT_FOUND
+        return jsonify({'msg': "Dado não encontrado no banco com esse email"}), HTTPStatus.NOT_FOUND
+    except NoResultFound:
+        return jsonify({'msg': "Nenhum dado foi encontrado"}), HTTPStatus.NOT_FOUND
