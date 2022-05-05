@@ -6,12 +6,12 @@ from datetime import date, datetime
 @dataclass
 class LeadsModel(db.Model):
 
-    name = str
-    email = str
-    phone = str
-    creation_date = date
-    last_visit = date
-    visits = int
+    name : str
+    email : str
+    phone : str
+    creation_date : date
+    last_visit : date
+    visits : int
 
     __tablename__ = "leads"
     id = Column(Integer, autoincrement=True, primary_key=True)
