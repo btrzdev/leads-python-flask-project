@@ -17,7 +17,7 @@ def init_app(app: Flask):
 
     from app.models.leads_model import LeadsModel
 
-    db.create_all(app=app)
+   
    
 
 
