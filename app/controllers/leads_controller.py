@@ -6,12 +6,28 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm import Query
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from psycopg2.errors import UniqueViolation
+from datetime import datetime
+import re
+
 class NotFound(Exception):
     pass
 
 def create_leads():
     data = request.get_json()
     try:
+        required_keys = ["name", "email", "phone"]
+        data_request_keys = data.keys()
+
+        for item in data_request_keys:
+            if item not in required_keys:
+                return {'msg': "Essa chave não é permitida"}, HTTPStatus.BAD_REQUEST
+        for item in data_request_keys:
+            if type(item) != str:
+                return {'msg': "Todos os campos devem ser strings"}, HTTPStatus.BAD_REQUEST
+
+        phone_regex = "^\([1-9]{2}\) (?:[2-8]|9[1-9])[0-9]{3}\-[0-9]{4}$"
+        if not (re.fullmatch(phone_regex, data['phone'])):
+            return {'msg': 'O formato do telefone precisa ser: (xx)xxxxx-xxxx'}, HTTPStatus.BAD_REQUEST
             
         leads_data = LeadsModel(**data)       
                 
@@ -36,6 +52,32 @@ def retrieve_leads():
         return jsonify(all_leads), HTTPStatus.OK
     except NotFound:
         return {'error': 'Nenhum dado encontrado'},HTTPStatus.NOT_FOUND
+
+def edit_leads():
+    data = request.get_json()
+    try:
+        if type(data['email'])!=str:
+            raise TypeError
+        for key in data.keys():
+            if key != 'email':
+                raise KeyError                  
+        
+        lead_edit = LeadsModel.query.filter_by(email=data["email"]).one()
+        
+        setattr(lead_edit,'last_visit',datetime.utcnow())
+        setattr(lead_edit,'visits',f"{lead_edit.visits+1}")     
+
+        current_app.db.session.add(lead_edit)
+        current_app.db.session.commit()
+        return "", HTTPStatus.OK
+    except NoResultFound:
+        return {'msg': "Não foi encontrado nenhum dado com esse email"}
+    except KeyError:
+        return {'msg': "A chave deve ser um email"}
+    except TypeError:
+        return {'msg': "O conteúdo da requisição deve ser do tipo string"}
+
+
 
 def delete_leads():
     try:
